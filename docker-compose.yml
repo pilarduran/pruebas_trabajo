@@ -1,0 +1,105 @@
+# TP Sistemas Operativos - 3 contenedores distribuidos.
+#
+#   Contenedor 1 "memoria" (172.28.0.11): kernel_memory + swap + memory_stick
+#   Contenedor 2 "kernel"  (172.28.0.12): kernel_scheduler + io
+#   Contenedor 3 "cpu"     (172.28.0.13): cpu
+#
+# Se comunican por red entre contenedores usando IPs ESTATICAS (la CPU usa
+# inet_pton y solo acepta IPs numericas). El orden de arranque
+# memoria -> kernel -> cpu se garantiza con healthchecks + depends_on.
+
+x-so-base: &so-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: tp-so:latest
+  restart: "no"
+  init: true
+
+services:
+  memoria:
+    <<: *so-base
+    container_name: tp-memoria
+    hostname: memoria
+    environment:
+      - ROLE=memoria
+      - IP_MEMORIA=172.28.0.11
+      - IP_KERNEL=172.28.0.12
+      - MEMORY_STICK_SIZE=${MEMORY_STICK_SIZE:-4096}
+    networks:
+      tp_net:
+        ipv4_address: 172.28.0.11
+    # Sano cuando kernel_memory ya escucha en 8001
+    healthcheck:
+      test: ["CMD", "/app/docker/healthcheck.sh", "8001"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 3s
+
+  kernel:
+    <<: *so-base
+    container_name: tp-kernel
+    hostname: kernel
+    depends_on:
+      memoria:
+        condition: service_healthy   # arranca DESPUES de memoria
+    environment:
+      - ROLE=kernel
+      - IP_MEMORIA=172.28.0.11
+      - IP_KERNEL=172.28.0.12
+      - PROCESO_INICIAL=${PROCESO_INICIAL:-proceso_completo.txt}
+      - SUSPENSION_TIMEOUT=${SUSPENSION_TIMEOUT:-}
+      - IO_TYPES=SLEEP STDIN STDOUT
+    networks:
+      tp_net:
+        ipv4_address: 172.28.0.12
+    # Sano cuando kernel_scheduler ya escucha en 8002
+    healthcheck:
+      test: ["CMD", "/app/docker/healthcheck.sh", "8002"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 3s
+
+  cpu:
+    <<: *so-base
+    container_name: tp-cpu
+    hostname: cpu
+    depends_on:
+      kernel:
+        condition: service_healthy   # arranca DESPUES de kernel
+    environment:
+      - ROLE=cpu
+      - IP_MEMORIA=172.28.0.11
+      - IP_KERNEL=172.28.0.12
+      - CPU_ID=${CPU_ID:-0}          # id_cpu = atoi(CPU_ID): debe ser numerico
+    networks:
+      tp_net:
+        ipv4_address: 172.28.0.13
+
+  # Segunda CPU (opcional): solo arranca con --profile multicpu.
+  # Sirve para probar multiprocesamiento real (2 CPUs en paralelo).
+  cpu2:
+    <<: *so-base
+    container_name: tp-cpu2
+    hostname: cpu2
+    profiles: [multicpu]
+    depends_on:
+      kernel:
+        condition: service_healthy
+    environment:
+      - ROLE=cpu
+      - IP_MEMORIA=172.28.0.11
+      - IP_KERNEL=172.28.0.12
+      - CPU_ID=1
+    networks:
+      tp_net:
+        ipv4_address: 172.28.0.14
+
+networks:
+  tp_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

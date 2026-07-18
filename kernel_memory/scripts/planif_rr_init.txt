@@ -1,0 +1,3 @@
+INIT_PROC proceso_rr_a.txt 1
+INIT_PROC proceso_rr_b.txt 1
+EXIT

@@ -1,0 +1,7 @@
+.git
+*.zip
+**/bin
+**/obj
+**/lib
+**/logs
+*.log

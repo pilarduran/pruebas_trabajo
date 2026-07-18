@@ -1,0 +1,3 @@
+INIT_PROC multicpu_worker.txt 0
+INIT_PROC multicpu_worker.txt 0
+EXIT

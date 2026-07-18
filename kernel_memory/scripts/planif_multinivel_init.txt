@@ -1,0 +1,2 @@
+INIT_PROC proceso_baja.txt 3
+EXIT
