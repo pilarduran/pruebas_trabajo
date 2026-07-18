@@ -27,6 +27,9 @@ services:
       - IP_KERNEL=172.28.0.12
       - MEMORY_STICK_SIZE=${MEMORY_STICK_SIZE:-4096}
       - MEMORY_STICKS=${MEMORY_STICKS:-1}
+      - SEGMENT_MAX_SIZE=${SEGMENT_MAX_SIZE:-}
+      - SCRIPTS_BASEPATH=${SCRIPTS_BASEPATH:-}
+      - MEMORY_DELAY=${MEMORY_DELAY:-}
     networks:
       tp_net:
         ipv4_address: 172.28.0.11
@@ -52,6 +55,7 @@ services:
       - PROCESO_INICIAL=${PROCESO_INICIAL:-proceso_completo.txt}
       - SUSPENSION_TIMEOUT=${SUSPENSION_TIMEOUT:-}
       - STDIN_FEED=${STDIN_FEED:-}
+      - QUEUES_ALGORITHMS=${QUEUES_ALGORITHMS:-}
       - IO_TYPES=SLEEP STDIN STDOUT
     networks:
       tp_net:
@@ -76,6 +80,7 @@ services:
       - IP_MEMORIA=172.28.0.11
       - IP_KERNEL=172.28.0.12
       - CPU_ID=${CPU_ID:-0}          # id_cpu = atoi(CPU_ID): debe ser numerico
+      - SEGMENT_MAX_SIZE=${SEGMENT_MAX_SIZE:-}
     networks:
       tp_net:
         ipv4_address: 172.28.0.13
@@ -95,6 +100,7 @@ services:
       - IP_MEMORIA=172.28.0.11
       - IP_KERNEL=172.28.0.12
       - CPU_ID=1
+      - SEGMENT_MAX_SIZE=${SEGMENT_MAX_SIZE:-}
     networks:
       tp_net:
         ipv4_address: 172.28.0.14
