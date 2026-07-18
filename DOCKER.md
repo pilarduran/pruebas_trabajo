@@ -37,11 +37,24 @@ docker compose down                # bajar todo
 Las IPs se inyectan en runtime (el entrypoint parchea los configs dentro del
 contenedor con `sed`). **Los archivos de config del repo quedan intactos.**
 
-## Parámetros (variables de entorno en `docker-compose.yml`)
+## Parámetros (variables de entorno)
 - `PROCESO_INICIAL` — script inicial (en `kernel_memory/scripts/`).
-- `CPU_ID` — identificador de la CPU.
-- `MEMORY_STICK_SIZE` — tamaño de la memoria física (bytes).
+- `CPU_ID` — identificador **numérico** de la CPU (`id_cpu = atoi(CPU_ID)`).
+- `MEMORY_STICK_SIZE` — tamaño de cada memoria física (bytes).
+- `MEMORY_STICKS` — cantidad de `memory_stick` a levantar (default 1; puertos 8003, 8004, …).
+- `SUSPENSION_TIMEOUT` — override del timeout de suspensión (ms) para probar swap rápido.
+- `STDIN_FEED` — ruta (dentro del contenedor) de un archivo del que io `STDIN` lee la entrada.
 - `IO_TYPES` — tipos de IO a levantar (`SLEEP STDIN STDOUT`).
+
+Ejemplos:
+```bash
+# 2 CPUs en paralelo
+PROCESO_INICIAL=multicpu_init.txt docker compose --profile multicpu up --build
+# 2 memory_stick
+MEMORY_STICKS=2 MEMORY_STICK_SIZE=128 PROCESO_INICIAL=proceso_multistick.txt docker compose up --build
+```
+
+Ver la batería completa de pruebas en [`PRUEBAS.md`](PRUEBAS.md).
 
 ## Logs
 Dentro de cada contenedor en `/app/logs/*.log`, y también por
