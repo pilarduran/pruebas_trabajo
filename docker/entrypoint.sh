@@ -71,6 +71,12 @@ case "$ROLE" in
     # para que getpeername reporte una IP ruteable que la CPU pueda alcanzar.
     set_cfg /app/memory_stick/config.txt IP_KERNEL_MEMORY "$IP_MEMORIA"
     set_cfg /app/swap/swap.config        IP_KERNEL_MEMORY "$IP_MEMORIA"
+    # Override opcional del retardo de acceso fisico del memory_stick (ms).
+    [ -n "${MEMORY_DELAY:-}" ] && set_cfg /app/memory_stick/config.txt MEMORY_DELAY "$MEMORY_DELAY"
+    # Overrides opcionales (pruebas de la catedra): tamanio de segmento y
+    # carpeta de scripts (p.ej. ./scripts/catedra para los .prc).
+    [ -n "${SEGMENT_MAX_SIZE:-}" ] && set_cfg /app/kernel_memory/kernel_memory.config SEGMENT_MAX_SIZE "$SEGMENT_MAX_SIZE"
+    [ -n "${SCRIPTS_BASEPATH:-}" ] && set_cfg /app/kernel_memory/kernel_memory.config SCRIPTS_BASEPATH "$SCRIPTS_BASEPATH"
 
     launch "kernel_memory" /app/kernel_memory ./bin/kernel_memory kernel_memory.config
     wait_local 8001 "kernel_memory"
@@ -98,6 +104,11 @@ case "$ROLE" in
       set_cfg /app/kernel_scheduler/kernel_scheduler.config SUSPENSION_TIMEOUT "$SUSPENSION_TIMEOUT"
       echo ">> SUSPENSION_TIMEOUT override = ${SUSPENSION_TIMEOUT} ms"
     fi
+    # Override opcional de las colas (p.ej. 6 colas para prioridades 0-5 de PHP).
+    if [ -n "${QUEUES_ALGORITHMS:-}" ]; then
+      set_cfg /app/kernel_scheduler/kernel_scheduler.config QUEUES_ALGORITHMS "$QUEUES_ALGORITHMS"
+      echo ">> QUEUES_ALGORITHMS override = ${QUEUES_ALGORITHMS}"
+    fi
 
     # (memoria ya esta lista: garantizado por depends_on:service_healthy)
     launch "kernel_scheduler" /app/kernel_scheduler ./bin/kernel_scheduler kernel_scheduler.config "${PROCESO_INICIAL:-proceso_inicial.txt}"
@@ -116,6 +127,8 @@ case "$ROLE" in
     # cpu apunta al scheduler y a la memoria (ambos en otros contenedores).
     set_cfg /app/cpu/configs/cpu.config KERNEL_SCHEDULER_IP "$IP_KERNEL"
     set_cfg /app/cpu/configs/cpu.config KERNEL_MEMORY_IP    "$IP_MEMORIA"
+    # SEGMENT_MAX_SIZE debe coincidir con el de memoria (traduccion de direcciones).
+    [ -n "${SEGMENT_MAX_SIZE:-}" ] && set_cfg /app/cpu/configs/cpu.config SEGMENT_MAX_SIZE "$SEGMENT_MAX_SIZE"
 
     # (memoria y kernel ya estan listos: garantizado por depends_on:service_healthy)
     launch "cpu" /app/cpu ./bin/cpu configs/cpu.config "${CPU_ID:-0}"

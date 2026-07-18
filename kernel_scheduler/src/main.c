@@ -1337,6 +1337,11 @@ void manejar_fin_io(t_proceso* proceso) {
         proceso->tiempo_suspension = time(NULL);
         list_add(lista_susp_ready, proceso);
         pthread_mutex_unlock(&mutex_listas);
+
+        // El proceso ya esta listo para volver: intentamos de-suspenderlo ahora.
+        // Sin esto quedaria en SUSP_READY hasta que llegue un OP_MEMORIA_DISPONIBLE,
+        // que en escenarios sin actividad de memoria puede no ocurrir nunca.
+        intentar_dessuspender_procesos();
     }
 }
 
