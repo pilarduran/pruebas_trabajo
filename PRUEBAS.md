@@ -36,13 +36,15 @@ docker compose down
 | 5 | Swap out **e** in (suspensión/de-suspensión) | `proceso_swap_full.txt` | ✅ (destapó bug, ver abajo) |
 | 6 | Planificación RR (quantum + desalojo) | `planif_rr_init.txt` | ✅ |
 | 7 | Colas multinivel (CMN) + desalojo entre colas | `planif_multinivel_init.txt` | ✅ |
-| 8 | Aritmética/saltos (`SUB`, `JNZ`, bucles) | — | ⬜ pendiente |
+| 8 | Aritmética/saltos (`SUB`, `JNZ`, bucles) | `proceso_bucle.txt` | ✅ |
 | 9 | Sincronización (`MUTEX_CREATE/LOCK/UNLOCK`) | `mutex_init.txt` | ✅ |
 | 10 | Multiprocesamiento (varias CPUs en paralelo) | `multicpu_init.txt` | ✅ |
-| 11 | Segmentation Fault | — | ⬜ pendiente |
-| 12 | Varios `memory_stick` | — | ⬜ pendiente |
-| 13 | IO `STDIN` (interactivo) | — | ⬜ pendiente |
-| 14 | BSOD / memoria corrupta | — | ⬜ pendiente |
+| 11 | Segmentation Fault | `proceso_segfault.txt` | ✅ |
+| 12 | Varios `memory_stick` | `proceso_multistick.txt` | ✅ |
+| 13 | IO `STDIN` | `proceso_stdin.txt` | ✅ |
+| 14 | BSOD / memoria corrupta | `proceso_bsod.txt` | ✅ |
+
+**Cobertura: 14/14 ✅**
 
 ---
 
@@ -148,10 +150,56 @@ completaba (deadlock), impidiendo el swap-in. Corregido agregando
 - **Nota:** `id_cpu = atoi(CPU_ID)`, así que `CPU_ID` debe ser **numérico** y distinto
   por CPU (`0`, `1`, …). Un valor no numérico como `"CPU1"` da `atoi = 0`.
 
+### 8. Aritmética y saltos (bucle `SUB`/`JNZ`)
+- **Script:** `proceso_bucle.txt` — `SET AX 5 / SET BX 1 / SUB AX BX / JNZ AX 2 / EXIT`.
+- **Comando:** `PROCESO_INICIAL=proceso_bucle.txt docker compose up --build`
+- **Resultado:** bucle correcto de 5 iteraciones: `SUB` deja `AX` en 4,3,2,1,0; `JNZ AX 2`
+  salta a la instrucción 2 mientras `AX != 0` (4 saltos) y al llegar a 0 cae en `EXIT`.
+
+### 11. Segmentation Fault
+- **Script:** `proceso_segfault.txt` — `SET AX 1 / SET DI 0 / MOV_OUT AX / EXIT`
+  (accede al segmento 0 **sin** haberlo alocado).
+- **Comando:** `PROCESO_INICIAL=proceso_segfault.txt docker compose up --build`
+- **Resultado:** la CPU detecta `Segmentation Fault - el segmento 0 no existe` y el
+  proceso `finalizo su ejecucion con motivo de SEG_FAULT`.
+
+### 12. Varios memory_stick
+- **Script:** `proceso_multistick.txt` — `MEM_ALLOC 0 200`, escribe `11` en DF 0 y `22`
+  en DF 150, y los lee de vuelta.
+- **Requiere 2+ sticks:** variable `MEMORY_STICKS` (default 1).
+- **Comando:** `MEMORY_STICKS=2 MEMORY_STICK_SIZE=128 PROCESO_INICIAL=proceso_multistick.txt docker compose up --build`
+- **Resultado:** se conectan 2 sticks de 128 B (total 256). El segmento de 200 B abarca
+  ambos: la escritura en DF 0 la atiende `memory_stick_1` y la de DF 150 (>128) la atiende
+  `memory_stick_2`. Las lecturas devuelven `11` y `22` → routing de direcciones entre
+  sticks correcto.
+
+### 13. IO STDIN
+- **Script:** `proceso_stdin.txt` — `MEM_ALLOC 0 32`, `STDIN` de 5 chars a DF 0, `STDOUT`
+  de esos 5 chars.
+- **Entrada:** el io `STDIN` lee de un archivo vía `STDIN_FEED` (el entrypoint redirige su
+  stdin). El feed por defecto (`docker/stdin_feed.txt`) contiene `HELLO`.
+- **Comando:** `STDIN_FEED=/app/docker/stdin_feed.txt PROCESO_INICIAL=proceso_stdin.txt docker compose up --build`
+- **Resultado:** io `STDIN` lee `HELLO`, se escribe en memoria, y io `STDOUT` lo imprime
+  (`## PID: 0 - HELLO`) → round-trip STDIN → memoria → STDOUT verificado.
+
+### 14. BSOD / memoria corrupta
+- **Script:** `proceso_bsod.txt` — 400 `NOOP` + `EXIT` (proceso vivo durante la prueba).
+- **Comando:**
+  ```bash
+  PROCESO_INICIAL=proceso_bsod.txt docker compose up -d --build
+  sleep 6
+  docker exec tp-memoria pkill -9 -f "bin/memory_stick"   # matar el stick en caliente
+  ```
+- **Resultado:** kernel_memory detecta `Memory Stick desconectado - Memoria corrupta` y
+  notifica al scheduler, que dispara `## BSOD - Memoria corrupta detectada` y finaliza los
+  procesos `con motivo de BSOD`.
+
 ---
 
-## Pendiente
+## Estado
 
-Ver filas ⬜ de la matriz. Próximos objetivos sugeridos por valor:
-sincronización con **mutex**, **múltiples CPUs**, **Segmentation Fault** y
-**varios memory_stick**.
+**Las 14 funcionalidades de la matriz fueron probadas end-to-end (14/14 ✅).**
+
+Casos borde adicionales que se podrían sumar más adelante: prioridad heredada en
+mutex bajo CMN de forma explícita, `INIT_PROC` con prioridad fuera de rango
+(`lista_ready_invalida`), y `MEM_ALLOC` mayor a `SEGMENT_MAX_SIZE`.

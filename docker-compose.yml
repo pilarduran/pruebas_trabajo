@@ -26,6 +26,7 @@ services:
       - IP_MEMORIA=172.28.0.11
       - IP_KERNEL=172.28.0.12
       - MEMORY_STICK_SIZE=${MEMORY_STICK_SIZE:-4096}
+      - MEMORY_STICKS=${MEMORY_STICKS:-1}
     networks:
       tp_net:
         ipv4_address: 172.28.0.11
@@ -50,6 +51,7 @@ services:
       - IP_KERNEL=172.28.0.12
       - PROCESO_INICIAL=${PROCESO_INICIAL:-proceso_completo.txt}
       - SUSPENSION_TIMEOUT=${SUSPENSION_TIMEOUT:-}
+      - STDIN_FEED=${STDIN_FEED:-}
       - IO_TYPES=SLEEP STDIN STDOUT
     networks:
       tp_net:
