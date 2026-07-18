@@ -1,0 +1,2 @@
+INIT_PROC borde_dummy.txt 9
+EXIT

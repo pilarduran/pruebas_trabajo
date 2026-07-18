@@ -1,0 +1,2 @@
+INIT_PROC borde_herencia_owner.txt 3
+EXIT

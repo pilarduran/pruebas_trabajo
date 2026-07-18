@@ -43,8 +43,11 @@ docker compose down
 | 12 | Varios `memory_stick` | `proceso_multistick.txt` | ✅ |
 | 13 | IO `STDIN` | `proceso_stdin.txt` | ✅ |
 | 14 | BSOD / memoria corrupta | `proceso_bsod.txt` | ✅ |
+| 15 | Herencia de prioridad en mutex (CMN) | `borde_herencia_init.txt` | ✅ |
+| 16 | `INIT_PROC` con prioridad fuera de rango | `borde_prio_init.txt` | ✅ |
+| 17 | `MEM_ALLOC` mayor a `SEGMENT_MAX_SIZE` | `borde_segmax.txt` | ✅ |
 
-**Cobertura: 14/14 ✅**
+**Cobertura: 17/17 ✅**
 
 ---
 
@@ -194,12 +197,41 @@ completaba (deadlock), impidiendo el swap-in. Corregido agregando
   notifica al scheduler, que dispara `## BSOD - Memoria corrupta detectada` y finaliza los
   procesos `con motivo de BSOD`.
 
+### 15. Herencia de prioridad en mutex (CMN)
+- **Scripts:** `borde_herencia_init.txt` → `borde_herencia_owner.txt` (prioridad 3:
+  crea y toma el mutex, lanza el proceso de alta prioridad, `SLEEP`, libera) +
+  `borde_herencia_high.txt` (prioridad 0: intenta tomar el mutex).
+- **Comando:** `PROCESO_INICIAL=borde_herencia_init.txt docker compose up --build`
+- **Resultado:** el dueño (prioridad 3) toma el mutex; al bloquearse el proceso de
+  prioridad 0 esperándolo, el dueño **hereda** la prioridad:
+  `## 1 Cambio de prioridad: 3 - 0`. Al liberar el mutex, **revierte**:
+  `## 1 Cambio de prioridad: 0 - 3`, y el de prioridad 0 lo toma.
+
+### 16. INIT_PROC con prioridad fuera de rango
+- **Scripts:** `borde_prio_init.txt` (crea un proceso con prioridad 9) + `borde_dummy.txt`.
+- **Config relevante:** `QUEUES_ALGORITHMS=[FIFO,RR,RR,FIFO]` ⇒ prioridades válidas 0–3.
+- **Comando:** `PROCESO_INICIAL=borde_prio_init.txt docker compose up --build`
+- **Resultado:** `## (1) Prioridad 9 fuera de rango, no se planifica`; el proceso queda
+  en `lista_ready_invalida` y nunca ejecuta.
+- **Observación:** igual se loguea la transición `NEW→READY` aunque el proceso no
+  entró a ninguna cola de ready válida (inconsistencia menor de logging, sin impacto
+  funcional).
+
+### 17. MEM_ALLOC mayor a SEGMENT_MAX_SIZE
+- **Script:** `borde_segmax.txt` — `MEM_ALLOC 0 300 / EXIT` (300 > `SEGMENT_MAX_SIZE=256`).
+- **Comando:** `PROCESO_INICIAL=borde_segmax.txt docker compose up --build`
+- **Resultado:** memoria rechaza el pedido
+  `PID: 0 - Segmento 0 de 300 bytes excede SEGMENT_MAX_SIZE (256)` → la CPU recibe
+  `MEM_ALLOC respondio error` y el proceso finaliza.
+- **Observación:** el proceso termina reportando `motivo de EXIT` (no un motivo de error
+  específico); el fallo se maneja finalizando el proceso.
+
 ---
 
 ## Estado
 
-**Las 14 funcionalidades de la matriz fueron probadas end-to-end (14/14 ✅).**
+**Las 17 funcionalidades / casos borde de la matriz fueron probados end-to-end (17/17 ✅).**
 
-Casos borde adicionales que se podrían sumar más adelante: prioridad heredada en
-mutex bajo CMN de forma explícita, `INIT_PROC` con prioridad fuera de rango
-(`lista_ready_invalida`), y `MEM_ALLOC` mayor a `SEGMENT_MAX_SIZE`.
+Observaciones menores registradas (casos 16 y 17): son inconsistencias de logging /
+motivo de finalización, sin impacto funcional. El único defecto de comportamiento
+encontrado en toda la campaña fue el deadlock de swap/finalización, ya corregido.

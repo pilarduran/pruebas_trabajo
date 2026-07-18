@@ -1,0 +1,6 @@
+MUTEX_CREATE mtx
+MUTEX_LOCK mtx
+INIT_PROC borde_herencia_high.txt 0
+SLEEP 3000
+MUTEX_UNLOCK mtx
+EXIT
