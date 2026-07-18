@@ -178,6 +178,11 @@ void atender_ks(int fd) {
             contexto_eliminar(pid);
             pthread_mutex_unlock(&mutex_contextos);
 
+            // El KS espera confirmacion (manejar_proceso_exit): respondemos ANTES
+            // de notificar, para que libere mutex_pedidos_memoria y el hilo de
+            // notificaciones pueda de-suspender sin deadlock.
+            enviar_codigo(fd, OP_OK);
+
             notificar_ks(OP_MEMORIA_DISPONIBLE);   // se liberó memoria
 
         } else if (op == OP_CREAR_SEGMENTO) {
@@ -234,6 +239,9 @@ void atender_ks(int fd) {
             recv(fd, &pid, sizeof(int), MSG_WAITALL);
 
             bool ok = proceso_suspender(pid);
+            // El KS (hilo_suspension) espera confirmacion: respondemos ANTES de
+            // notificar para liberar mutex_pedidos_memoria y evitar deadlock.
+            enviar_codigo(fd, ok ? OP_OK : OP_ERROR);
             if (ok) notificar_ks(OP_MEMORIA_DISPONIBLE);
 
         } else if (op == OP_DESSUSPENDER_PROCESO) {
